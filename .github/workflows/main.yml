@@ -88,8 +88,8 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           context: ${{ inputs.context }}
           cache-from: |
-            type=registry,ref=ghcr.io/${{ github.repository }}:alpine:buildcache-alpine-main
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-alpine-main
           cache-to: |
-            type=registry,ref=ghcr.io/${{ github.repository }}::buildcache-alpine-main,mode=max
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-alpine-main,mode=max
           build-args: | 
             TD_COMMIT=${{ steps.setup-vars.outputs.LATEST_COMMIT }}
