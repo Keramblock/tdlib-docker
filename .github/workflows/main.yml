@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-push:
-    name: Buid and push Docker image to GitHub Container registry
+    name: Build and push Docker image to GitHub Container registry
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,6 +40,26 @@ jobs:
           token: ${{secrets.GITHUB_TOKEN}}
           path: tdlib
 
+      - name: Setup variables
+        id: setup-vars
+        if: steps.cache-tdlib.outputs.cache-hit != 'true'
+        run: |
+          LATEST_COMMIT=${{fromJson(steps.get-tdlib-ref.outputs.data).commit.sha}}
+          LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
+          echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+          echo "LATEST_COMMIT_SHORT=$LATEST_COMMIT_SHORT" >> $GITHUB_OUTPUT
+
+      - uses: docker/metadata-action@v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.setup-vars.outputs.LATEST_COMMIT_SHORT }}-alpine
+            type=ref,event=branch
+          labels: |
+            org.opencontainers.image.ref.name=${{ steps.setup-vars.outputs.LATEST_COMMIT }}
+            org.opencontainers.image.authors=${{ github.triggering_actor }}
+
       - name: Login to GitHub Container registry
         if: steps.cache-tdlib.outputs.cache-hit != 'true'
         uses: docker/login-action@v3
@@ -48,17 +68,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set env vars
-        if: steps.cache-tdlib.outputs.cache-hit != 'true'
-        run: |
-          LATEST_COMMIT=${{fromJson(steps.get-tdlib-ref.outputs.data).commit.sha}}
-          LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
-          echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_ENV
-          echo "LATEST_COMMIT_SHORT=$LATEST_COMMIT_SHORT" >> $GITHUB_ENV
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: Build Docker image
-        if: steps.cache-tdlib.outputs.cache-hit != 'true'
-        run: |
-          tag=ghcr.io/${{ github.repository }}:${{ env.LATEST_COMMIT_SHORT }}-alpine
-          docker build --network host --build-arg TD_COMMIT=${{ env.LATEST_COMMIT }} --tag $tag .
-          docker push $tag
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          context: ${{ inputs.context }}
+          cache-from: |
+            type=registry,ref=ghcr.io/${{ github.repository }}:${{ env.LATEST_COMMIT_SHORT }}-alpine:buildcache-main
+          cache-to: |
+            type=registry,ref=ghcr.io/${{ github.repository }}:${{ env.LATEST_COMMIT_SHORT }}-alpine:buildcache-main,mode=max
+          build-args: | 
+            TD_COMMIT=${{ env.LATEST_COMMIT }}

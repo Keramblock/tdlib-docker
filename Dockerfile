@@ -17,7 +17,7 @@ RUN apk update && \
         openssl-dev \
         php \
         zlib-dev && \
-    git clone "https://github.com/tdlib/td.git" /src && \
+RUN git clone "https://github.com/tdlib/td.git" /src && \
     cd /src && \
     git checkout ${TD_COMMIT} && \
     rm -rf build && \
