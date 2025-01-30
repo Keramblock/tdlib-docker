@@ -43,7 +43,7 @@ jobs:
 
       - name: Setup variables
         id: setup-vars
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || GITHUB_EVENT_NAME!='schedule'
+        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         run: |
           LATEST_COMMIT=${{fromJson(steps.get-tdlib-ref.outputs.data).commit.sha}}
           LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
@@ -52,7 +52,7 @@ jobs:
 
       - uses: docker/metadata-action@v5
         id: metadata
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || GITHUB_EVENT_NAME!='schedule'
+        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -63,7 +63,7 @@ jobs:
             org.opencontainers.image.authors=${{ github.triggering_actor }}
 
       - name: Login to GitHub Container registry
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || GITHUB_EVENT_NAME!='schedule'
+        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -71,16 +71,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || GITHUB_EVENT_NAME!='schedule'
+        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || GITHUB_EVENT_NAME!='schedule'
+        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push
         uses: docker/build-push-action@v6
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || GITHUB_EVENT_NAME!='schedule'
+        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         with:
           platforms: linux/amd64,linux/arm64
           push: true
