@@ -7,12 +7,12 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  build-push:
-    name: Build and push Docker image to GitHub Container registry
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      latest_commit: ${{ steps.setup-vars.outputs.LATEST_COMMIT }}
+      latest_commit_short: ${{ steps.setup-vars.outputs.LATEST_COMMIT_SHORT }}
+      cache_hit: ${{ steps.cache-tdlib.outputs.cache-hit }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -50,46 +50,72 @@ jobs:
           echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_OUTPUT
           echo "LATEST_COMMIT_SHORT=$LATEST_COMMIT_SHORT" >> $GITHUB_OUTPUT
 
-      - uses: docker/metadata-action@v5
-        id: metadata
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=${{ steps.setup-vars.outputs.LATEST_COMMIT_SHORT }}-alpine
-            type=ref,event=branch
-          labels: |
-            org.opencontainers.image.ref.name=${{ steps.setup-vars.outputs.LATEST_COMMIT }}
-            org.opencontainers.image.authors=${{ github.triggering_actor }}
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.cache_hit != 'true' || github.event_name!='schedule'
+    strategy:
+      matrix:
+        platform: [amd64, arm64]
+        include:
+          - platform: amd64
+            runs-on: [ubuntu-latest]
+          - platform: arm64
+            runs-on: [macos-latest]
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
 
       - name: Login to GitHub Container registry
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         uses: docker/setup-buildx-action@v3
+
+      - uses: docker/metadata-action@v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.prepare.outputs.latest_commit_short }}-alpine-${{ matrix.platform }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
-        if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         with:
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.platform }}
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
           context: ${{ inputs.context }}
           cache-from: |
-            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-alpine-main
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-alpine-${{ matrix.platform }}
           cache-to: |
-            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-alpine-main,mode=max
-          build-args: | 
-            TD_COMMIT=${{ steps.setup-vars.outputs.LATEST_COMMIT }}
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-alpine-${{ matrix.platform }},mode=max
+          build-args: |
+            TD_COMMIT=${{ needs.prepare.outputs.latest_commit }}
+
+  merge:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.cache_hit != 'true' || github.event_name!='schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest
+        run: |
+          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine \
+            ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine-amd64 \
+            ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine-arm64
