@@ -49,6 +49,10 @@ jobs:
           LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
           echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_OUTPUT
           echo "LATEST_COMMIT_SHORT=$LATEST_COMMIT_SHORT" >> $GITHUB_OUTPUT
+          echo "## TDLib Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: [\`${{ fromJson(steps.get-tdlib-ref.outputs.data).commit.sha }}\`](https://github.com/tdlib/td/commit/${{ fromJson(steps.get-tdlib-ref.outputs.data).commit.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Short hash: \`${LATEST_COMMIT:0:7}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Cache hit: \`${{ steps.cache-tdlib.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
 
   build:
     needs: prepare
@@ -119,3 +123,10 @@ jobs:
           docker buildx imagetools create -t ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine \
             ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine-amd64 \
             ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine-arm64
+
+      - name: Add image addresses to summary
+        run: |
+          echo "## Built Docker Images" >> $GITHUB_STEP_SUMMARY
+          echo "- Multi-arch image: \`ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine\`" >> $GITHUB_STEP_SUMMARY
+          echo "- AMD64 image: \`ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine-amd64\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ARM64 image: \`ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.latest_commit_short }}-alpine-arm64\`" >> $GITHUB_STEP_SUMMARY
