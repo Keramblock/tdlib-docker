@@ -60,7 +60,7 @@ jobs:
           - platform: amd64
             runs-on: [ubuntu-latest]
           - platform: arm64
-            runs-on: [macos-latest]
+            runs-on: [ubuntu-24.04-arm]
     runs-on: ${{ matrix.runs-on }}
     permissions:
       packages: write
