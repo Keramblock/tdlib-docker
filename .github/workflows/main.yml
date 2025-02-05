@@ -45,7 +45,7 @@ jobs:
         id: setup-vars
         if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         run: |
-          LATEST_COMMIT=${{fromJson(steps.get-tdlib-ref.outputs.data).commit.sha}}
+          LATEST_COMMIT="22d49d5b87a4d5fc60a194dab02dd1d71529687f"
           LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
           echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_OUTPUT
           echo "LATEST_COMMIT_SHORT=$LATEST_COMMIT_SHORT" >> $GITHUB_OUTPUT

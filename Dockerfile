@@ -3,7 +3,7 @@ FROM alpine:3.20.3 AS tdlib-builder
 ENV LANG=en_US.UTF-8
 ENV TZ=UTC
 
-ENV TD_COMMIT=22d49d5
+ARG TD_COMMIT
 
 RUN apk update && \
     apk upgrade && \
