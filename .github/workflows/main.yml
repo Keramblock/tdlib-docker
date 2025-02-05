@@ -18,25 +18,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Get tdlib ref
-        uses: octokit/request-action@v2.x
         id: get-tdlib-ref
-        with:
-          route: GET /repos/tdlib/td/branches/master
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          echo "LATEST_COMMIT=22d49d5b87a4d5fc60a194dab02dd1d71529687f" >> $GITHUB_OUTPUT
 
       - name: Cache tdlib
         id: cache-tdlib
         uses: actions/cache@v4
         with:
           path: tdlib
-          key: tdlib-${{fromJson(steps.get-tdlib-ref.outputs.data).commit.sha}}
+          key: tdlib-${{steps.get-tdlib-ref.outputs.LATEST_COMMIT}}
 
       - name: Checkout tdlib
         if: steps.cache-tdlib.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{fromJson(steps.get-tdlib-ref.outputs.data).commit.sha}}
+          ref: ${{steps.get-tdlib-ref.outputs.LATEST_COMMIT}}
           repository: tdlib/td
           token: ${{secrets.GITHUB_TOKEN}}
           path: tdlib
@@ -45,12 +42,12 @@ jobs:
         id: setup-vars
         if: steps.cache-tdlib.outputs.cache-hit != 'true' || github.event_name!='schedule'
         run: |
-          LATEST_COMMIT="22d49d5b87a4d5fc60a194dab02dd1d71529687f"
+          LATEST_COMMIT=${{steps.get-tdlib-ref.outputs.LATEST_COMMIT}}
           LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
           echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_OUTPUT
           echo "LATEST_COMMIT_SHORT=$LATEST_COMMIT_SHORT" >> $GITHUB_OUTPUT
           echo "## TDLib Build Information" >> $GITHUB_STEP_SUMMARY
-          echo "- Commit: [\`${{ fromJson(steps.get-tdlib-ref.outputs.data).commit.sha }}\`](https://github.com/tdlib/td/commit/${{ fromJson(steps.get-tdlib-ref.outputs.data).commit.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: [\`${{steps.get-tdlib-ref.outputs.LATEST_COMMIT}}\`](https://github.com/tdlib/td/commit/${{steps.get-tdlib-ref.outputs.LATEST_COMMIT}})" >> $GITHUB_STEP_SUMMARY
           echo "- Short hash: \`${LATEST_COMMIT:0:7}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Cache hit: \`${{ steps.cache-tdlib.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
 
